@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__claude_ai_DeepWiki__read_wiki_structure",
+      "Bash(gh repo:*)",
+      "Bash(gh api:*)",
+      "mcp__claude_ai_DeepWiki__ask_question",
+      "mcp__claude_ai_Grep__searchGitHub",
+      "WebFetch(domain:developer.chrome.com)",
+      "WebFetch(domain:www.chromium.org)",
+      "WebFetch(domain:medium.com)",
+      "WebFetch(domain:www.xjavascript.com)",
+      "WebFetch(domain:boryssey.medium.com)",
+      "WebFetch(domain:betterprogramming.pub)",
+      "WebFetch(domain:dagshub.com)",
+      "WebFetch(domain:groups.google.com)",
+      "WebFetch(domain:dev.to)",
+      "WebFetch(domain:gist.github.com)",
+      "WebFetch(domain:davidwalsh.name)",
+      "WebFetch(domain:jimut123.github.io)",
+      "WebFetch(domain:github.com)"
+    ]
+  }
+}
