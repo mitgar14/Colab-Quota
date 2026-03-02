@@ -176,7 +176,7 @@ La extensión no ejecuta código remoto.
 - La API de cuota de Colab (`colab.pa.googleapis.com`) no es pública ni está documentada oficialmente. Puede cambiar o dejar de funcionar sin aviso.
 - Las credenciales OAuth deben ser de un proyecto GCP que ya tenga el scope de Colaboratory habilitado. No es posible usar credenciales de un proyecto propio.
 - La extensión no funciona en Firefox (depende de APIs específicas de Chromium: `chrome.alarms`, `chrome.windows.create`, Manifest V3).
-- Los iconos son placeholders.
+- Los iconos se generaron proceduralmente y no tienen versión de alta fidelidad en formato vectorial exportado.
 
 ## Licencia
 
