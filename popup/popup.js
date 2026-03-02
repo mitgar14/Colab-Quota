@@ -74,10 +74,12 @@ function renderAuth(data) {
   const refillRow = $('#refill-row');
   const refillEl = $('#refill-countdown');
   if (waitingRefill) {
-    // Waiting for refill: only show refill countdown, hide consumption metrics
+    // Waiting for refill: show countdown, hide burn/time, keep sessions if active (CPU)
     $('#burn-row').hidden = true;
     $('#time-row').hidden = true;
-    $('#sessions-row').hidden = true;
+    const sessions = ccuInfo?.activeSessions || 0;
+    $('#sessions').textContent = String(sessions);
+    $('#sessions-row').hidden = sessions === 0;
     refillRow.hidden = false;
     const updateRefill = () => {
       const cd = formatCountdown(ccuInfo.refillAt);
