@@ -205,3 +205,65 @@ async function logout() {
     } catch (_) { /* ignore revocation errors */ }
   }
 }
+
+// ============================================================
+// Token Refresh
+// ============================================================
+
+async function refreshTokens(refreshToken) {
+  const response = await fetch(TOKEN_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id:     CLIENT_ID,
+      client_secret: CLIENT_SECRET,
+      refresh_token: refreshToken,
+      grant_type:    'refresh_token',
+    }),
+  });
+
+  if (!response.ok) {
+    const errBody = await response.text();
+    const status = response.status;
+
+    // invalid_grant: token revoked or client changed
+    if (status === 400 && errBody.includes('invalid_grant')) {
+      await chrome.storage.local.remove(['tokens', 'userInfo', 'ccuInfo', 'lastUpdated']);
+      await chrome.storage.local.set({ lastError: 'Session expired. Please reconnect.' });
+      await chrome.alarms.clear(ALARM_NAME);
+      throw new Error('invalid_grant');
+    }
+
+    // 401: OAuth client may have changed
+    if (status === 401) {
+      await chrome.storage.local.remove(['tokens', 'userInfo', 'ccuInfo', 'lastUpdated']);
+      await chrome.storage.local.set({ lastError: 'Auth error. Please reconnect.' });
+      await chrome.alarms.clear(ALARM_NAME);
+      throw new Error('oauth_client_changed');
+    }
+
+    throw new Error(`Refresh failed (${status}): ${errBody}`);
+  }
+
+  const data = await response.json();
+  const newTokens = {
+    access_token:  data.access_token,
+    refresh_token: data.refresh_token || refreshToken, // preserve if not returned
+    expires_at:    Date.now() + data.expires_in * 1000,
+  };
+
+  await chrome.storage.local.set({ tokens: newTokens });
+  return newTokens;
+}
+
+async function getValidAccessToken() {
+  const { tokens } = await chrome.storage.local.get('tokens');
+  if (!tokens) throw new Error('not_authenticated');
+
+  if (tokens.expires_at - REFRESH_MARGIN_MS < Date.now()) {
+    const newTokens = await refreshTokens(tokens.refresh_token);
+    return newTokens.access_token;
+  }
+
+  return tokens.access_token;
+}
