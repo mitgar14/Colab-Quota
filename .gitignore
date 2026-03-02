@@ -11,8 +11,5 @@ Thumbs.db
 *.pem
 *.zip
 
-# Credentials (never commit)
-background/config.js
-
 # Claude
 .claude/

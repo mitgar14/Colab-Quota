@@ -32,7 +32,6 @@ Los datos se actualizan cada 5 minutos mediante `chrome.alarms`. No hay servidor
 
 - Google Chrome o Chromium >= 120
 - Una cuenta de Google con acceso a Colab
-- Credenciales OAuth2 con acceso al scope `colaboratory` (ver [Instalación](#instalación))
 
 ## Instalación
 
@@ -45,26 +44,14 @@ git clone https://github.com/<tu-usuario>/colab-quota.git
 cd colab-quota
 ```
 
-### 2. Configurar credenciales OAuth2
-
-Copiar la plantilla y llenar los valores:
-
-```bash
-cp background/config.example.js background/config.js
-```
-
-Editar `background/config.js` con un `CLIENT_ID` y `CLIENT_SECRET` que tengan acceso al scope `https://www.googleapis.com/auth/colaboratory`. El `REDIRECT_URI` debe ser `http://localhost`.
-
-> **Sobre las credenciales**: el endpoint de cuota de Colab (`colab.pa.googleapis.com`) es una API privada de Google. No se puede habilitar en proyectos GCP propios. Las credenciales deben pertenecer a un proyecto que ya tenga acceso — por ejemplo, las del [SDK de Google Cloud](https://github.com/xeodou/colab-cli/blob/master/auth.go) o las de la [extensión oficial de VS Code](https://github.com/googlecolab/colab-vscode).
-
-### 3. Cargar en Chrome
+### 2. Cargar en Chrome
 
 1. Abrir `chrome://extensions/`
 2. Activar **Modo desarrollador** (esquina superior derecha)
 3. Click en **Cargar extensión sin empaquetar**
 4. Seleccionar la carpeta raíz del proyecto (la que contiene `manifest.json`)
 
-La extensión aparece en la barra de herramientas.
+La extensión aparece en la barra de herramientas. Las credenciales OAuth2 vienen incluidas (son las del SDK de Google Cloud, públicas).
 
 ## Uso
 
@@ -122,9 +109,7 @@ Los tres componentes se sincronizan mediante `chrome.storage.onChanged`.
 colab-quota/
 ├── manifest.json              Manifiesto MV3
 ├── background/
-│   ├── service-worker.js      Lógica principal (OAuth, polling, API)
-│   ├── config.js              Credenciales OAuth2 (gitignored)
-│   └── config.example.js      Plantilla para config.js
+│   └── service-worker.js      Lógica principal (OAuth, polling, API)
 ├── popup/
 │   ├── popup.html             Estructura del popup
 │   ├── popup.js               Renderizado y event handlers
@@ -174,7 +159,7 @@ La extensión no ejecuta código remoto.
 ## Limitaciones
 
 - La API de cuota de Colab (`colab.pa.googleapis.com`) no es pública ni está documentada oficialmente. Puede cambiar o dejar de funcionar sin aviso.
-- Las credenciales OAuth deben ser de un proyecto GCP que ya tenga el scope de Colaboratory habilitado. No es posible usar credenciales de un proyecto propio.
+- Las credenciales OAuth incluidas son las del SDK de Google Cloud (públicas). Si Google las revoca, la extensión dejará de funcionar hasta reemplazarlas.
 - La extensión no funciona en Firefox (depende de APIs específicas de Chromium: `chrome.alarms`, `chrome.windows.create`, Manifest V3).
 - Los iconos se generaron proceduralmente y no tienen versión de alta fidelidad en formato vectorial exportado.
 
