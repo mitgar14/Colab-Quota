@@ -41,7 +41,6 @@ No hay build, bundler ni dependencias npm. La extensión se carga directamente.
 
 ```bash
 git clone https://github.com/mitgar14/Colab-Quota.git
-cd Colab-Quota
 ```
 
 ### 2. Cargar en Chrome
