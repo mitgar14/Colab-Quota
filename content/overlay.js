@@ -94,58 +94,143 @@
   }
 
   function getOverlayStyles() {
-    // PLACEHOLDER: Will be replaced with polished styles in Task 10
     return `
+      /* ── Colab Quota Overlay — Industrial monitoring aesthetic ── */
+
+      @keyframes cq-slide-in {
+        from {
+          opacity: 0;
+          transform: translateY(8px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes cq-pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.35; }
+      }
+
+      @keyframes cq-tooltip-in {
+        from {
+          opacity: 0;
+          transform: translateY(4px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* ── Chip ── */
+
       .cq-chip {
         position: fixed;
         bottom: 24px;
         left: 12px;
         z-index: 99999;
-        background: rgba(0, 0, 0, 0.8);
-        color: #fff;
-        border-radius: 8px;
-        padding: 6px 12px;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        font-size: 13px;
+        background: rgba(14, 17, 23, 0.88);
+        color: #e6edf3;
+        border-radius: 6px;
+        padding: 5px 11px 5px 13px;
+        font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
+        font-size: 12.5px;
+        font-weight: 500;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: 0.01em;
         cursor: default;
         user-select: none;
-        backdrop-filter: blur(8px);
-        transition: background 0.3s ease;
-        line-height: 1.4;
+        line-height: 1.5;
+        border-left: 3px solid transparent;
+        backdrop-filter: blur(12px) saturate(1.4);
+        -webkit-backdrop-filter: blur(12px) saturate(1.4);
+        box-shadow:
+          0 1px 3px rgba(0, 0, 0, 0.4),
+          0 4px 12px rgba(0, 0, 0, 0.25),
+          inset 0 0.5px 0 rgba(255, 255, 255, 0.06);
+        transition:
+          border-color 0.25s ease,
+          background 0.25s ease,
+          box-shadow 0.25s ease;
+        animation: cq-slide-in 0.3s ease-out;
       }
-      .cq-chip[data-status="ok"] { border-left: 3px solid #22c55e; }
-      .cq-chip[data-status="warning"] { border-left: 3px solid #eab308; }
-      .cq-chip[data-status="danger"] { border-left: 3px solid #ef4444; }
-      .cq-chip[data-status="exhausted"] {
-        border-left: 3px solid #ef4444;
-        animation: cq-pulse 1.5s ease-in-out infinite;
-      }
-      .cq-chip[data-status="loading"] { border-left: 3px solid #6b7280; }
-      .cq-chip[data-status="error"] { border-left: 3px solid #f97316; }
-      .cq-chip[data-status="unauth"] { border-left: 3px solid #6b7280; cursor: pointer; }
 
-      @keyframes cq-pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.4; }
+      .cq-chip:hover {
+        background: rgba(14, 17, 23, 0.94);
+        box-shadow:
+          0 1px 3px rgba(0, 0, 0, 0.4),
+          0 6px 16px rgba(0, 0, 0, 0.35),
+          inset 0 0.5px 0 rgba(255, 255, 255, 0.08);
       }
+
+      /* ── Status colors ── */
+
+      .cq-chip[data-status="ok"] {
+        border-left-color: #3fb950;
+      }
+
+      .cq-chip[data-status="warning"] {
+        border-left-color: #f0a030;
+      }
+
+      .cq-chip[data-status="danger"] {
+        border-left-color: #f85149;
+      }
+
+      .cq-chip[data-status="exhausted"] {
+        border-left-color: #f85149;
+        animation: cq-slide-in 0.3s ease-out, cq-pulse 2s ease-in-out 0.3s infinite;
+      }
+
+      .cq-chip[data-status="loading"] {
+        border-left-color: #6e7681;
+        color: #8b949e;
+      }
+
+      .cq-chip[data-status="error"] {
+        border-left-color: #f0a030;
+      }
+
+      .cq-chip[data-status="unauth"] {
+        border-left-color: #6e7681;
+        cursor: pointer;
+        color: #8b949e;
+      }
+
+      .cq-chip[data-status="unauth"]:hover {
+        border-left-color: #f0a030;
+        color: #e6edf3;
+      }
+
+      /* ── Tooltip ── */
 
       .cq-tooltip {
         position: fixed;
-        bottom: 62px;
+        bottom: 58px;
         left: 12px;
         z-index: 99999;
-        background: rgba(0, 0, 0, 0.9);
-        color: #e5e7eb;
+        background: rgba(14, 17, 23, 0.95);
+        color: #c9d1d9;
         border-radius: 8px;
-        padding: 10px 14px;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        font-size: 12px;
-        line-height: 1.6;
-        min-width: 200px;
-        max-width: 280px;
-        backdrop-filter: blur(8px);
+        padding: 11px 14px;
+        font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
+        font-size: 11.5px;
+        font-weight: 400;
+        line-height: 1.65;
+        min-width: 210px;
+        max-width: 290px;
+        backdrop-filter: blur(16px) saturate(1.4);
+        -webkit-backdrop-filter: blur(16px) saturate(1.4);
+        box-shadow:
+          0 2px 6px rgba(0, 0, 0, 0.4),
+          0 8px 24px rgba(0, 0, 0, 0.3),
+          inset 0 0.5px 0 rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.06);
         pointer-events: none;
         white-space: pre-line;
+        animation: cq-tooltip-in 0.15s ease-out;
       }
     `;
   }
