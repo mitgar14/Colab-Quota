@@ -6,8 +6,10 @@
 // Constants
 // ============================================================
 
-const CLIENT_ID     = '__REPLACE_WITH_YOUR_CLIENT_ID__';
-const CLIENT_SECRET = '__REPLACE_WITH_YOUR_CLIENT_SECRET__';
+// OAuth2 credentials loaded from config.js (gitignored)
+// Copy background/config.example.js to background/config.js and fill in your values.
+importScripts('config.js');
+
 const AUTH_URL      = 'https://accounts.google.com/o/oauth2/v2/auth';
 const TOKEN_URL     = 'https://oauth2.googleapis.com/token';
 const USERINFO_URL  = 'https://www.googleapis.com/oauth2/v2/userinfo';
@@ -107,14 +109,10 @@ function parseConsumptionResponse(raw) {
 // OAuth2 Authentication
 // ============================================================
 
-function getRedirectUri() {
-  return `https://${chrome.runtime.id}.chromiumapp.org/`;
-}
-
 function buildAuthUrl(codeChallenge) {
   const params = new URLSearchParams({
     client_id:             CLIENT_ID,
-    redirect_uri:          getRedirectUri(),
+    redirect_uri:          REDIRECT_URI,
     response_type:         'code',
     scope:                 SCOPES,
     access_type:           'offline',
@@ -135,7 +133,7 @@ async function exchangeCodeForTokens(code, codeVerifier) {
       code,
       code_verifier: codeVerifier,
       grant_type:    'authorization_code',
-      redirect_uri:  getRedirectUri(),
+      redirect_uri:  REDIRECT_URI,
     }),
   });
 
@@ -165,17 +163,43 @@ async function authenticate() {
   const { codeVerifier, codeChallenge } = await generatePKCE();
   const authUrl = buildAuthUrl(codeChallenge);
 
-  const redirectUrl = await chrome.identity.launchWebAuthFlow({
+  // Open a popup window for Google OAuth (can't use launchWebAuthFlow
+  // because the redirect URI is http://localhost, not chromiumapp.org)
+  const authWindow = await chrome.windows.create({
     url: authUrl,
-    interactive: true,
+    type: 'popup',
+    width: 500,
+    height: 700,
   });
 
-  const url = new URL(redirectUrl);
-  const code = url.searchParams.get('code');
-  if (!code) {
-    const error = url.searchParams.get('error') || 'no code in redirect';
-    throw new Error(`Auth failed: ${error}`);
-  }
+  // Wait for Google to redirect to http://localhost?code=XXX
+  const code = await new Promise((resolve, reject) => {
+    const onTabUpdated = (tabId, changeInfo) => {
+      if (!changeInfo.url || !changeInfo.url.startsWith(REDIRECT_URI)) return;
+
+      chrome.tabs.onUpdated.removeListener(onTabUpdated);
+      chrome.windows.onRemoved.removeListener(onWindowClosed);
+
+      const redirected = new URL(changeInfo.url);
+      const authCode = redirected.searchParams.get('code');
+      const error = redirected.searchParams.get('error');
+
+      chrome.windows.remove(authWindow.id).catch(() => {});
+
+      if (authCode) resolve(authCode);
+      else reject(new Error(`Auth failed: ${error || 'no code in redirect'}`));
+    };
+
+    const onWindowClosed = (windowId) => {
+      if (windowId !== authWindow.id) return;
+      chrome.tabs.onUpdated.removeListener(onTabUpdated);
+      chrome.windows.onRemoved.removeListener(onWindowClosed);
+      reject(new Error('Auth window closed by user'));
+    };
+
+    chrome.tabs.onUpdated.addListener(onTabUpdated);
+    chrome.windows.onRemoved.addListener(onWindowClosed);
+  });
 
   const tokens = await exchangeCodeForTokens(code, codeVerifier);
   const userInfo = await fetchGoogleUserInfo(tokens.access_token);
@@ -340,7 +364,9 @@ async function fetchCcuInfo() {
     }
 
     if (!response.ok) {
-      await chrome.storage.local.set({ lastError: `API error (${response.status})` });
+      const errBody = await response.text();
+      console.error(`[Colab Quota] API error ${response.status}:`, errBody);
+      await chrome.storage.local.set({ lastError: `API error (${response.status}): ${errBody.slice(0, 200)}` });
       return;
     }
 

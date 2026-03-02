@@ -10,3 +10,9 @@ Thumbs.db
 *.crx
 *.pem
 *.zip
+
+# Credentials (never commit)
+background/config.js
+
+# Claude
+.claude/

@@ -18,7 +18,10 @@
       "WebFetch(domain:gist.github.com)",
       "WebFetch(domain:davidwalsh.name)",
       "WebFetch(domain:jimut123.github.io)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(node:*)",
+      "Bash(gh search:*)",
+      "Bash(do:*)"
     ]
   }
 }

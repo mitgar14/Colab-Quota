@@ -6,15 +6,16 @@
   "minimum_chrome_version": "120",
 
   "permissions": [
-    "identity",
     "storage",
-    "alarms"
+    "alarms",
+    "tabs"
   ],
 
   "host_permissions": [
     "https://colab.research.google.com/*",
     "https://colab.pa.googleapis.com/*",
-    "https://oauth2.googleapis.com/*"
+    "https://oauth2.googleapis.com/*",
+    "http://localhost/*"
   ],
 
   "background": {
