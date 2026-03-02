@@ -107,7 +107,7 @@ function renderAuth(data) {
 
     const sessions = ccuInfo?.activeSessions || 0;
     if (sessions > 0 && burnRate > 0) {
-      $('#sessions').textContent = `${sessions} (GPU)`;
+      $('#sessions').textContent = `${sessions} (con GPU)`;
     } else if (sessions > 0) {
       $('#sessions').textContent = `${sessions} (CPU)`;
     } else {
