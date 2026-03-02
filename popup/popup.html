@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="popup.css">
+  <title>Colab Quota</title>
+</head>
+<body>
+  <!-- State: Not authenticated -->
+  <div id="state-unauth" class="state" hidden>
+    <div class="header">
+      <h1>Colab Quota</h1>
+    </div>
+    <div class="body">
+      <p>Conecta tu cuenta Google para monitorear tus Compute Units.</p>
+      <button id="btn-login" class="btn btn-primary">Conectar con Google</button>
+    </div>
+  </div>
+
+  <!-- State: Authenticated -->
+  <div id="state-auth" class="state" hidden>
+    <div class="header">
+      <h1>Colab Quota</h1>
+      <span id="tier-badge" class="badge"></span>
+    </div>
+    <div class="user-info">
+      <span id="user-email"></span>
+    </div>
+    <div class="balance-display">
+      <span id="balance-value" class="balance-number"></span>
+      <span class="balance-unit">CU</span>
+    </div>
+    <div class="details">
+      <span id="burn-rate"></span>
+      <span id="time-remaining"></span>
+    </div>
+    <div class="meta">
+      <span id="last-updated"></span>
+    </div>
+    <div class="actions">
+      <button id="btn-refresh" class="btn btn-secondary">Actualizar</button>
+      <button id="btn-logout" class="btn btn-ghost">Salir</button>
+    </div>
+  </div>
+
+  <!-- State: Error -->
+  <div id="state-error" class="state" hidden>
+    <div class="header">
+      <h1>Colab Quota</h1>
+    </div>
+    <div class="body">
+      <p class="error-message" id="error-text"></p>
+      <button id="btn-retry" class="btn btn-primary">Reintentar</button>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
