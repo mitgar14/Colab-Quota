@@ -101,3 +101,107 @@ function parseConsumptionResponse(raw) {
     activeSessions, eligible, ineligible, refillAt,
   };
 }
+
+// ============================================================
+// OAuth2 Authentication
+// ============================================================
+
+function getRedirectUri() {
+  return `https://${chrome.runtime.id}.chromiumapp.org/`;
+}
+
+function buildAuthUrl(codeChallenge) {
+  const params = new URLSearchParams({
+    client_id:             CLIENT_ID,
+    redirect_uri:          getRedirectUri(),
+    response_type:         'code',
+    scope:                 SCOPES,
+    access_type:           'offline',
+    prompt:                'consent',
+    code_challenge:        codeChallenge,
+    code_challenge_method: 'S256',
+  });
+  return `${AUTH_URL}?${params.toString()}`;
+}
+
+async function exchangeCodeForTokens(code, codeVerifier) {
+  const response = await fetch(TOKEN_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id:     CLIENT_ID,
+      client_secret: CLIENT_SECRET,
+      code,
+      code_verifier: codeVerifier,
+      grant_type:    'authorization_code',
+      redirect_uri:  getRedirectUri(),
+    }),
+  });
+
+  if (!response.ok) {
+    const errBody = await response.text();
+    throw new Error(`Token exchange failed (${response.status}): ${errBody}`);
+  }
+
+  const data = await response.json();
+  return {
+    access_token:  data.access_token,
+    refresh_token: data.refresh_token,
+    expires_at:    Date.now() + data.expires_in * 1000,
+  };
+}
+
+async function fetchGoogleUserInfo(accessToken) {
+  const response = await fetch(USERINFO_URL, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!response.ok) throw new Error(`UserInfo failed (${response.status})`);
+  const data = await response.json();
+  return { name: data.name || '', email: data.email || '' };
+}
+
+async function authenticate() {
+  const { codeVerifier, codeChallenge } = await generatePKCE();
+  const authUrl = buildAuthUrl(codeChallenge);
+
+  const redirectUrl = await chrome.identity.launchWebAuthFlow({
+    url: authUrl,
+    interactive: true,
+  });
+
+  const url = new URL(redirectUrl);
+  const code = url.searchParams.get('code');
+  if (!code) {
+    const error = url.searchParams.get('error') || 'no code in redirect';
+    throw new Error(`Auth failed: ${error}`);
+  }
+
+  const tokens = await exchangeCodeForTokens(code, codeVerifier);
+  const userInfo = await fetchGoogleUserInfo(tokens.access_token);
+
+  await chrome.storage.local.set({
+    tokens,
+    userInfo,
+    lastError: null,
+  });
+
+  await startPolling();
+  await fetchCcuInfo(); // first fetch immediately
+}
+
+async function logout() {
+  const { tokens } = await chrome.storage.local.get('tokens');
+
+  await chrome.alarms.clear(ALARM_NAME);
+  await chrome.storage.local.remove(['tokens', 'userInfo', 'ccuInfo', 'lastUpdated', 'lastError']);
+
+  // Best-effort token revocation
+  if (tokens?.access_token) {
+    try {
+      await fetch(`https://oauth2.googleapis.com/revoke?token=${tokens.access_token}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      });
+    } catch (_) { /* ignore revocation errors */ }
+  }
+}
