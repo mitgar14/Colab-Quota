@@ -1,5 +1,6 @@
 // Colab Quota — Service Worker
 // OAuth2 PKCE + polling + storage management
+// All state is read from chrome.storage on each wake — no global mutable state.
 
 // ============================================================
 // Constants
@@ -350,3 +351,68 @@ async function fetchCcuInfo() {
     await chrome.storage.local.set({ lastError: message });
   }
 }
+
+// ============================================================
+// Polling
+// ============================================================
+
+async function startPolling() {
+  await chrome.alarms.create(ALARM_NAME, { periodInMinutes: POLL_INTERVAL });
+}
+
+async function init() {
+  const { tokens } = await chrome.storage.local.get('tokens');
+  if (tokens) {
+    await startPolling();
+  }
+}
+
+// ============================================================
+// Event Listeners (must be at top-level scope for MV3)
+// ============================================================
+
+chrome.runtime.onInstalled.addListener(() => {
+  console.log('[Colab Quota] Extension installed');
+  init();
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  console.log('[Colab Quota] Browser started');
+  init();
+});
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === ALARM_NAME) {
+    fetchCcuInfo();
+  }
+});
+
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg.type === 'LOGIN') {
+    authenticate()
+      .then(() => sendResponse({ ok: true }))
+      .catch((err) => sendResponse({ ok: false, error: err.message }));
+    return true; // async response
+  }
+
+  if (msg.type === 'LOGOUT') {
+    logout()
+      .then(() => sendResponse({ ok: true }))
+      .catch((err) => sendResponse({ ok: false, error: err.message }));
+    return true;
+  }
+
+  if (msg.type === 'REFRESH_NOW') {
+    fetchCcuInfo()
+      .then(() => sendResponse({ ok: true }))
+      .catch((err) => sendResponse({ ok: false, error: err.message }));
+    return true;
+  }
+
+  if (msg.type === 'GET_STATE') {
+    chrome.storage.local.get(['tokens', 'userInfo', 'ccuInfo', 'lastUpdated', 'lastError'])
+      .then((data) => sendResponse(data))
+      .catch((err) => sendResponse({ error: err.message }));
+    return true;
+  }
+});
