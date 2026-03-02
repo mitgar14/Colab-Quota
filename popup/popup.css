@@ -1,0 +1,278 @@
+/* Colab Quota — Popup Stylesheet
+   Aesthetic: Industrial monitoring terminal. Dark, utilitarian, precise. */
+
+/* ── Foundations ── */
+
+:root {
+  --bg-primary: #0e1117;
+  --bg-surface: #161b22;
+  --bg-elevated: #1c2129;
+  --border-subtle: #2a2f38;
+  --border-accent: #363d47;
+
+  --text-primary: #e6edf3;
+  --text-secondary: #8b949e;
+  --text-muted: #6e7681;
+
+  --accent-amber: #f0a030;
+  --accent-green: #3fb950;
+  --accent-red: #f85149;
+  --accent-blue: #58a6ff;
+  --accent-purple: #bc8cff;
+
+  --font-display: 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  width: 320px;
+  min-height: 100px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* ── State containers ── */
+
+.state {
+  padding: 16px;
+  animation: fadeIn 0.15s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Header ── */
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.header h1 {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.header h1::before {
+  content: '>';
+  margin-right: 6px;
+  color: var(--accent-amber);
+  font-weight: 400;
+}
+
+/* ── Tier badge ── */
+
+.badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 2px 8px;
+  border-radius: 3px;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-accent);
+}
+
+/* ── Body (unauth / error states) ── */
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.body p {
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+/* ── User info ── */
+
+.user-info {
+  margin-bottom: 16px;
+}
+
+.user-info span {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  letter-spacing: 0.01em;
+}
+
+/* ── Balance display (the hero number) ── */
+
+.balance-display {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 12px;
+  padding: 12px 0;
+  position: relative;
+}
+
+.balance-display::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--accent-green);
+}
+
+.balance-number {
+  font-family: var(--font-mono);
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: var(--text-primary);
+  padding-left: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.balance-unit {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* ── Details (burn rate + time) ── */
+
+.details {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding-left: 14px;
+}
+
+.details span {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* ── Meta (last updated) ── */
+
+.meta {
+  margin-bottom: 14px;
+  padding-left: 14px;
+}
+
+.meta span {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* ── Buttons ── */
+
+.actions {
+  display: flex;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.btn {
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 500;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  padding: 7px 14px;
+  transition: all 0.12s ease;
+  letter-spacing: 0.01em;
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-primary {
+  background: var(--accent-amber);
+  color: var(--bg-primary);
+  font-weight: 600;
+  width: 100%;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #f5ad3c;
+  box-shadow: 0 0 12px rgba(240, 160, 48, 0.25);
+}
+
+.btn-secondary {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--border-accent);
+  flex: 1;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--border-subtle);
+  border-color: var(--text-muted);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-muted);
+  padding: 7px 10px;
+}
+
+.btn-ghost:hover:not(:disabled) {
+  color: var(--accent-red);
+  background: rgba(248, 81, 73, 0.08);
+}
+
+/* ── Error state ── */
+
+.error-message {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--accent-red);
+  background: rgba(248, 81, 73, 0.08);
+  border: 1px solid rgba(248, 81, 73, 0.2);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  line-height: 1.5;
+  word-break: break-word;
+}
