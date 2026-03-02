@@ -311,7 +311,9 @@ async function fetchCcuInfo() {
       }
       try {
         const newTokens = await refreshTokens(tokens.refresh_token);
-        // Retry with new token
+        // Retry with new token (with timeout)
+        const retryController = new AbortController();
+        const retryTimeoutId = setTimeout(() => retryController.abort(), FETCH_TIMEOUT_MS);
         const retryResponse = await fetch(url, {
           method: 'GET',
           headers: {
@@ -319,7 +321,9 @@ async function fetchCcuInfo() {
             'Authorization': `Bearer ${newTokens.access_token}`,
             'X-Colab-Client-Agent': 'vscode',
           },
+          signal: retryController.signal,
         });
+        clearTimeout(retryTimeoutId);
         if (!retryResponse.ok) {
           await chrome.storage.local.set({ lastError: `API error (${retryResponse.status})` });
           return;

@@ -123,10 +123,12 @@ $('#btn-retry').addEventListener('click', async () => {
   initPopup();
 });
 
-// React to storage changes while popup is open
+// React to storage changes while popup is open (debounced to avoid flicker)
+let _storageDebounce = null;
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'local') {
-    initPopup();
+    clearTimeout(_storageDebounce);
+    _storageDebounce = setTimeout(initPopup, 80);
   }
 });
 

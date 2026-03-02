@@ -256,8 +256,8 @@
     if (!tokens) {
       chip.dataset.status = 'unauth';
       chip.textContent = 'Colab Quota';
-      chip.onclick = () => chrome.runtime.sendMessage({ type: 'OPEN_POPUP' });
-      tooltip.textContent = 'Click para conectar tu cuenta Google';
+      chip.onclick = null; // MV3 cannot open popup programmatically
+      tooltip.textContent = 'Haz click en el icono de la extensi\u00f3n para conectar';
       return;
     }
 
