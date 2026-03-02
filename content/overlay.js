@@ -256,10 +256,11 @@
     if (!tokens) {
       chip.dataset.status = 'unauth';
       chip.textContent = 'Colab Quota';
-      chip.onclick = () => {
+      chip.onclick = async () => {
         chip.textContent = 'Conectando...';
         chip.onclick = null;
-        chrome.runtime.sendMessage({ type: 'LOGIN' });
+        const res = await chrome.runtime.sendMessage({ type: 'LOGIN' });
+        if (!res.ok) updateFromStorage();
       };
       tooltip.textContent = 'Click para conectar tu cuenta Google';
       return;
