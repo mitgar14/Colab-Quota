@@ -128,7 +128,7 @@
 
       .cq-chip {
         position: fixed;
-        bottom: 24px;
+        bottom: 56px;
         left: 12px;
         z-index: 99999;
         background: rgba(14, 17, 23, 0.88);
@@ -208,7 +208,7 @@
 
       .cq-tooltip {
         position: fixed;
-        bottom: 58px;
+        bottom: 90px;
         left: 12px;
         z-index: 99999;
         background: rgba(14, 17, 23, 0.95);
@@ -256,8 +256,12 @@
     if (!tokens) {
       chip.dataset.status = 'unauth';
       chip.textContent = 'Colab Quota';
-      chip.onclick = null; // MV3 cannot open popup programmatically
-      tooltip.textContent = 'Haz click en el icono de la extensi\u00f3n para conectar';
+      chip.onclick = () => {
+        chip.textContent = 'Conectando...';
+        chip.onclick = null;
+        chrome.runtime.sendMessage({ type: 'LOGIN' });
+      };
+      tooltip.textContent = 'Click para conectar tu cuenta Google';
       return;
     }
 
