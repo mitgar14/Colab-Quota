@@ -100,7 +100,11 @@ $('#btn-login').addEventListener('click', async () => {
   if (!response.ok) {
     $('#btn-login').disabled = false;
     $('#btn-login').textContent = 'Conectar con Google';
-    renderError(response.error);
+    if (response.error && response.error.includes('closed by user')) {
+      renderUnauth();
+    } else {
+      renderError(response.error);
+    }
   }
   // On success, storage.onChanged will trigger re-render
 });
