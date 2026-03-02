@@ -78,7 +78,7 @@ function renderAuth(data) {
     $('#burn-row').hidden = true;
     $('#time-row').hidden = true;
     const sessions = ccuInfo?.activeSessions || 0;
-    $('#sessions').textContent = String(sessions);
+    $('#sessions').textContent = sessions > 0 ? `${sessions} (CPU)` : '0';
     $('#sessions-row').hidden = sessions === 0;
     refillRow.hidden = false;
     const updateRefill = () => {
@@ -106,7 +106,13 @@ function renderAuth(data) {
     }
 
     const sessions = ccuInfo?.activeSessions || 0;
-    $('#sessions').textContent = String(sessions);
+    if (sessions > 0 && burnRate > 0) {
+      $('#sessions').textContent = `${sessions} (GPU)`;
+    } else if (sessions > 0) {
+      $('#sessions').textContent = `${sessions} (CPU)`;
+    } else {
+      $('#sessions').textContent = '0';
+    }
     $('#sessions-row').hidden = false;
   }
 
@@ -140,8 +146,17 @@ async function initPopup() {
   } else if (data.ccuInfo) {
     renderAuth(data);
   } else {
-    // Tokens exist but no data yet — show auth with empty state
     renderAuth(data);
+  }
+}
+
+// On popup open: render with cached data, then fetch fresh data in background.
+// storage.onChanged will re-render automatically when new data arrives.
+async function initAndRefresh() {
+  await initPopup();
+  const data = await chrome.storage.local.get(['tokens']);
+  if (data.tokens) {
+    chrome.runtime.sendMessage({ type: 'REFRESH_NOW' });
   }
 }
 
@@ -188,4 +203,4 @@ chrome.storage.onChanged.addListener((changes, area) => {
   }
 });
 
-initPopup();
+initAndRefresh();
