@@ -68,35 +68,44 @@ function renderAuth(data) {
   $('#balance-value').textContent = totalBalance.toFixed(1);
 
   const burnRate = ccuInfo?.burnRate || 0;
-  if (burnRate > 0) {
-    $('#burn-rate').textContent = `${burnRate.toFixed(2)} CU/hr`;
-    const hoursLeft = totalBalance / burnRate;
-    const formatted = formatTimeRemaining(hoursLeft);
-    $('#time-remaining').textContent = formatted ? `\u00b7 ${formatted}` : '';
-  } else {
-    $('#burn-rate').textContent = 'Sin consumo activo';
-    $('#time-remaining').textContent = '';
-  }
-
-  // Sessions
-  const sessions = ccuInfo?.activeSessions || 0;
-  $('#sessions').textContent = `${sessions} ${sessions === 1 ? 'sesi\u00f3n activa' : 'sesiones activas'}`;
+  const waitingRefill = totalBalance <= 0 && ccuInfo?.refillAt && ccuInfo.refillAt > Date.now();
 
   // Refill countdown
   const refillRow = $('#refill-row');
   const refillEl = $('#refill-countdown');
-  if (totalBalance <= 0 && ccuInfo?.refillAt && ccuInfo.refillAt > Date.now()) {
+  if (waitingRefill) {
+    // Waiting for refill: only show refill countdown, hide consumption metrics
+    $('#burn-row').hidden = true;
+    $('#time-row').hidden = true;
+    $('#sessions-row').hidden = true;
     refillRow.hidden = false;
     const updateRefill = () => {
       const cd = formatCountdown(ccuInfo.refillAt);
-      refillEl.textContent = cd ? `Refill en ${cd}` : 'Refill inminente...';
+      refillEl.textContent = cd || 'inminente...';
       if (!cd && _refillInterval) { clearInterval(_refillInterval); _refillInterval = null; }
     };
     updateRefill();
     _refillInterval = setInterval(updateRefill, 1000);
   } else {
+    // Normal: show consumption metrics, hide refill
+    $('#burn-row').hidden = false;
     refillRow.hidden = true;
     refillEl.textContent = '';
+
+    if (burnRate > 0) {
+      $('#burn-rate').textContent = `${burnRate.toFixed(2)} CU/hr`;
+      const hoursLeft = totalBalance / burnRate;
+      const formatted = formatTimeRemaining(hoursLeft);
+      $('#time-remaining').textContent = formatted || '--';
+      $('#time-row').hidden = false;
+    } else {
+      $('#burn-rate').textContent = '0 CU/hr';
+      $('#time-row').hidden = true;
+    }
+
+    const sessions = ccuInfo?.activeSessions || 0;
+    $('#sessions').textContent = String(sessions);
+    $('#sessions-row').hidden = false;
   }
 
   $('#last-updated').textContent = formatTimeSince(lastUpdated);

@@ -34,15 +34,23 @@
       <span id="balance-value" class="balance-number"></span>
       <span class="balance-unit">CU</span>
     </div>
-    <div class="details">
-      <span id="burn-rate"></span>
-      <span id="time-remaining"></span>
-    </div>
-    <div class="details">
-      <span id="sessions"></span>
-    </div>
-    <div id="refill-row" class="details" hidden>
-      <span id="refill-countdown"></span>
+    <div class="metrics">
+      <div class="metric-row" id="burn-row">
+        <span class="metric-label">Consumo</span>
+        <span class="metric-value" id="burn-rate"></span>
+      </div>
+      <div class="metric-row" id="time-row">
+        <span class="metric-label">Restante</span>
+        <span class="metric-value" id="time-remaining"></span>
+      </div>
+      <div class="metric-row" id="sessions-row">
+        <span class="metric-label">Sesiones</span>
+        <span class="metric-value" id="sessions"></span>
+      </div>
+      <div class="metric-row" id="refill-row" hidden>
+        <span class="metric-label">Refill</span>
+        <span class="metric-value metric-countdown" id="refill-countdown"></span>
+      </div>
     </div>
     <div class="meta">
       <span id="last-updated"></span>

@@ -89,20 +89,23 @@ body {
 
 .badge-wrap {
   position: relative;
+  flex-shrink: 0;
 }
 
 .badge {
+  display: inline-block;
   font-family: var(--font-mono);
   font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  padding: 2px 8px;
+  padding: 3px 10px;
   border-radius: 3px;
   background: var(--bg-elevated);
   color: var(--text-secondary);
   border: 1px solid var(--border-accent);
   cursor: default;
+  white-space: nowrap;
 }
 
 .badge-wrap:hover .tier-tooltip:not(:empty) {
@@ -196,27 +199,52 @@ body {
   text-transform: uppercase;
 }
 
-/* ── Details (burn rate + time) ── */
+/* ── Metrics panel ── */
 
-.details {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 8px;
-  padding-left: 14px;
+.metrics {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 2px 0;
+  margin-bottom: 10px;
 }
 
-.details span {
+.metric-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 12px;
+}
+
+.metric-row + .metric-row {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.metric-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.metric-value {
   font-family: var(--font-mono);
   font-size: 12px;
   color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.metric-countdown {
+  color: var(--accent-amber);
+  font-weight: 600;
 }
 
 /* ── Meta (last updated) ── */
 
 .meta {
   margin-bottom: 14px;
-  padding-left: 14px;
+  padding-left: 2px;
 }
 
 .meta span {
