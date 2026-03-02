@@ -1,6 +1,7 @@
 // Colab Quota — Popup
 
 const $ = (sel) => document.querySelector(sel);
+let _refillInterval = null;
 
 // ============================================================
 // Helpers
@@ -11,6 +12,15 @@ function formatTimeRemaining(hours) {
   const h = Math.floor(hours);
   const m = Math.round((hours - h) * 60);
   return h > 0 ? `~${h}h ${m}m` : `~${m}m`;
+}
+
+function formatCountdown(targetMs) {
+  const diff = Math.max(0, targetMs - Date.now());
+  if (diff === 0) return null;
+  const h = Math.floor(diff / 3_600_000);
+  const m = Math.floor((diff % 3_600_000) / 60_000);
+  const s = Math.floor((diff % 60_000) / 1_000);
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
 function formatTimeSince(timestampMs) {
@@ -41,8 +51,18 @@ function showState(stateId) {
 function renderAuth(data) {
   const { userInfo, ccuInfo, lastUpdated } = data;
 
+  // Clear previous refill interval
+  if (_refillInterval) { clearInterval(_refillInterval); _refillInterval = null; }
+
   $('#user-email').textContent = userInfo?.email || '';
   $('#tier-badge').textContent = tierLabel(ccuInfo?.tier);
+
+  // GPU tooltip on tier badge
+  const gpus = [];
+  for (const g of (ccuInfo?.eligible?.gpus || [])) gpus.push(`\u2713 ${g}`);
+  for (const g of (ccuInfo?.ineligible?.gpus || [])) gpus.push(`\u2717 ${g}`);
+  const tierTooltip = $('#tier-tooltip');
+  tierTooltip.textContent = gpus.length ? gpus.join('\n') : '';
 
   const totalBalance = (ccuInfo?.paidBalance || 0) + (ccuInfo?.freeBalance || 0);
   $('#balance-value').textContent = totalBalance.toFixed(1);
@@ -52,10 +72,31 @@ function renderAuth(data) {
     $('#burn-rate').textContent = `${burnRate.toFixed(2)} CU/hr`;
     const hoursLeft = totalBalance / burnRate;
     const formatted = formatTimeRemaining(hoursLeft);
-    $('#time-remaining').textContent = formatted ? `· ${formatted}` : '';
+    $('#time-remaining').textContent = formatted ? `\u00b7 ${formatted}` : '';
   } else {
     $('#burn-rate').textContent = 'Sin consumo activo';
     $('#time-remaining').textContent = '';
+  }
+
+  // Sessions
+  const sessions = ccuInfo?.activeSessions || 0;
+  $('#sessions').textContent = `${sessions} ${sessions === 1 ? 'sesi\u00f3n activa' : 'sesiones activas'}`;
+
+  // Refill countdown
+  const refillRow = $('#refill-row');
+  const refillEl = $('#refill-countdown');
+  if (totalBalance <= 0 && ccuInfo?.refillAt && ccuInfo.refillAt > Date.now()) {
+    refillRow.hidden = false;
+    const updateRefill = () => {
+      const cd = formatCountdown(ccuInfo.refillAt);
+      refillEl.textContent = cd ? `Refill en ${cd}` : 'Refill inminente...';
+      if (!cd && _refillInterval) { clearInterval(_refillInterval); _refillInterval = null; }
+    };
+    updateRefill();
+    _refillInterval = setInterval(updateRefill, 1000);
+  } else {
+    refillRow.hidden = true;
+    refillEl.textContent = '';
   }
 
   $('#last-updated').textContent = formatTimeSince(lastUpdated);

@@ -22,7 +22,10 @@
   <div id="state-auth" class="state" hidden>
     <div class="header">
       <h1>Colab Quota</h1>
-      <span id="tier-badge" class="badge"></span>
+      <div class="badge-wrap">
+        <span id="tier-badge" class="badge"></span>
+        <div id="tier-tooltip" class="tier-tooltip"></div>
+      </div>
     </div>
     <div class="user-info">
       <span id="user-email"></span>
@@ -34,6 +37,12 @@
     <div class="details">
       <span id="burn-rate"></span>
       <span id="time-remaining"></span>
+    </div>
+    <div class="details">
+      <span id="sessions"></span>
+    </div>
+    <div id="refill-row" class="details" hidden>
+      <span id="refill-countdown"></span>
     </div>
     <div class="meta">
       <span id="last-updated"></span>

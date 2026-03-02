@@ -87,6 +87,10 @@ body {
 
 /* ── Tier badge ── */
 
+.badge-wrap {
+  position: relative;
+}
+
 .badge {
   font-family: var(--font-mono);
   font-size: 10px;
@@ -98,6 +102,29 @@ body {
   background: var(--bg-elevated);
   color: var(--text-secondary);
   border: 1px solid var(--border-accent);
+  cursor: default;
+}
+
+.badge-wrap:hover .tier-tooltip:not(:empty) {
+  display: block;
+}
+
+.tier-tooltip {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-accent);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  white-space: pre;
+  z-index: 10;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
 /* ── Body (unauth / error states) ── */
