@@ -61,7 +61,6 @@
   // ============================================================
 
   function createHost() {
-    // Remove existing if somehow duplicated
     const existing = document.getElementById(HOST_ID);
     if (existing) existing.remove();
 
@@ -69,7 +68,6 @@
     host.id = HOST_ID;
     const shadow = host.attachShadow({ mode: 'open' });
 
-    // Styles live inside Shadow DOM for encapsulation
     const style = document.createElement('style');
     style.textContent = getOverlayStyles();
     shadow.appendChild(style);
@@ -85,7 +83,6 @@
     tooltip.hidden = true;
     shadow.appendChild(tooltip);
 
-    // Hover events
     chip.addEventListener('mouseenter', () => { tooltip.hidden = false; });
     chip.addEventListener('mouseleave', () => { tooltip.hidden = true; });
 
@@ -95,17 +92,9 @@
 
   function getOverlayStyles() {
     return `
-      /* ── Colab Quota Overlay — Industrial monitoring aesthetic ── */
-
       @keyframes cq-slide-in {
-        from {
-          opacity: 0;
-          transform: translateY(8px);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
+        from { opacity: 0; transform: translateY(8px); }
+        to   { opacity: 1; transform: translateY(0); }
       }
 
       @keyframes cq-pulse {
@@ -114,14 +103,8 @@
       }
 
       @keyframes cq-tooltip-in {
-        from {
-          opacity: 0;
-          transform: translateY(4px);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
+        from { opacity: 0; transform: translateY(4px) scale(0.98); }
+        to   { opacity: 1; transform: translateY(0) scale(1); }
       }
 
       /* ── Chip ── */
@@ -167,30 +150,15 @@
 
       /* ── Status colors ── */
 
-      .cq-chip[data-status="ok"] {
-        border-left-color: #3fb950;
-      }
-
-      .cq-chip[data-status="warning"] {
-        border-left-color: #f0a030;
-      }
-
-      .cq-chip[data-status="danger"] {
-        border-left-color: #f85149;
-      }
+      .cq-chip[data-status="ok"]        { border-left-color: #3fb950; }
+      .cq-chip[data-status="warning"]   { border-left-color: #f0a030; }
+      .cq-chip[data-status="danger"]    { border-left-color: #f85149; }
+      .cq-chip[data-status="loading"]   { border-left-color: #6e7681; color: #8b949e; }
+      .cq-chip[data-status="error"]     { border-left-color: #f0a030; }
 
       .cq-chip[data-status="exhausted"] {
         border-left-color: #f85149;
         animation: cq-slide-in 0.3s ease-out, cq-pulse 2s ease-in-out 0.3s infinite;
-      }
-
-      .cq-chip[data-status="loading"] {
-        border-left-color: #6e7681;
-        color: #8b949e;
-      }
-
-      .cq-chip[data-status="error"] {
-        border-left-color: #f0a030;
       }
 
       .cq-chip[data-status="unauth"] {
@@ -211,28 +179,153 @@
         bottom: 90px;
         left: 12px;
         z-index: 99999;
-        background: rgba(14, 17, 23, 0.95);
+        background: rgba(14, 17, 23, 0.96);
         color: #c9d1d9;
         border-radius: 8px;
-        padding: 11px 14px;
+        padding: 0;
         font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
-        font-size: 11.5px;
+        font-size: 11px;
         font-weight: 400;
-        line-height: 1.65;
-        min-width: 210px;
-        max-width: 290px;
+        line-height: 1.5;
+        min-width: 200px;
+        max-width: 260px;
         backdrop-filter: blur(16px) saturate(1.4);
         -webkit-backdrop-filter: blur(16px) saturate(1.4);
         box-shadow:
-          0 2px 6px rgba(0, 0, 0, 0.4),
-          0 8px 24px rgba(0, 0, 0, 0.3),
-          inset 0 0.5px 0 rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.06);
+          0 2px 6px rgba(0, 0, 0, 0.5),
+          0 8px 24px rgba(0, 0, 0, 0.35);
+        border: 1px solid rgba(255, 255, 255, 0.07);
         pointer-events: none;
-        white-space: pre-line;
+        overflow: hidden;
         animation: cq-tooltip-in 0.15s ease-out;
       }
+
+      /* ── Tooltip: simple text mode (unauth/error/loading) ── */
+
+      .cq-tooltip-text {
+        padding: 10px 12px;
+        font-size: 11.5px;
+        color: #8b949e;
+      }
+
+      /* ── Tooltip: structured metrics ── */
+
+      .cq-tt-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 6px 12px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      }
+
+      .cq-tt-row:last-child {
+        border-bottom: none;
+      }
+
+      .cq-tt-label {
+        color: #6e7681;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      .cq-tt-value {
+        color: #e6edf3;
+        font-size: 11.5px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .cq-tt-value.accent {
+        color: #f0a030;
+        font-weight: 600;
+      }
+
+      .cq-tt-value.dim {
+        color: #6e7681;
+      }
+
+      .cq-tt-footer {
+        padding: 5px 12px;
+        font-size: 10px;
+        color: #484f58;
+        border-top: 1px solid rgba(255, 255, 255, 0.04);
+        text-align: right;
+      }
+
+      .cq-tt-warn {
+        padding: 5px 12px;
+        font-size: 10px;
+        color: #f0a030;
+        border-top: 1px solid rgba(255, 255, 255, 0.04);
+      }
     `;
+  }
+
+  // ============================================================
+  // Tooltip builders
+  // ============================================================
+
+  function tooltipSimple(tooltip, text) {
+    tooltip.innerHTML = `<div class="cq-tooltip-text">${text}</div>`;
+  }
+
+  function tooltipMetrics(tooltip, ccuInfo, lastUpdated, lastError) {
+    const totalBalance = (ccuInfo.paidBalance || 0) + (ccuInfo.freeBalance || 0);
+    const burnRate = ccuInfo.burnRate || 0;
+    const sessions = ccuInfo.activeSessions || 0;
+    const waitingRefill = totalBalance <= 0 && ccuInfo.refillAt && ccuInfo.refillAt > Date.now();
+
+    let rows = '';
+
+    // Balance
+    rows += row('Balance', `${totalBalance.toFixed(1)} CU`);
+
+    if (waitingRefill) {
+      // Refill mode: just show countdown
+      const cd = formatCountdown(ccuInfo.refillAt);
+      rows += row('Refill', cd || 'inminente...', 'accent');
+      if (sessions > 0) {
+        rows += row('Sesiones', `${sessions} (CPU)`);
+      }
+    } else {
+      // Normal mode
+      if (burnRate > 0) {
+        rows += row('Consumo', `${burnRate.toFixed(2)} CU/hr`);
+        const hoursLeft = totalBalance / burnRate;
+        const timeStr = formatTimeRemaining(hoursLeft);
+        if (timeStr) rows += row('Restante', timeStr);
+      }
+
+      if (sessions > 0) {
+        const sessionLabel = burnRate > 0 ? `${sessions} (con GPU)` : `${sessions} (CPU)`;
+        rows += row('Sesiones', sessionLabel);
+      } else {
+        rows += row('Sesiones', '0', 'dim');
+      }
+    }
+
+    // Plan
+    rows += row('Plan', tierLabel(ccuInfo.tier));
+
+    // Footer
+    let footer = '';
+    if (lastUpdated) {
+      footer += `<div class="cq-tt-footer">${formatTimeSince(lastUpdated)}</div>`;
+    }
+    if (lastError) {
+      footer += `<div class="cq-tt-warn">\u26A0 ${escapeHtml(lastError)}</div>`;
+    }
+
+    tooltip.innerHTML = rows + footer;
+  }
+
+  function row(label, value, cls) {
+    const valClass = cls ? `cq-tt-value ${cls}` : 'cq-tt-value';
+    return `<div class="cq-tt-row"><span class="cq-tt-label">${label}</span><span class="${valClass}">${escapeHtml(value)}</span></div>`;
+  }
+
+  function escapeHtml(str) {
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
   // ============================================================
@@ -246,7 +339,6 @@
 
     const { tokens, ccuInfo, lastUpdated, lastError } = data;
 
-    // Clear countdown if running
     if (countdownInterval) {
       clearInterval(countdownInterval);
       countdownInterval = null;
@@ -262,23 +354,23 @@
         const res = await chrome.runtime.sendMessage({ type: 'LOGIN' });
         if (!res.ok) updateFromStorage();
       };
-      tooltip.textContent = 'Click para conectar tu cuenta Google';
+      tooltipSimple(tooltip, 'Click para conectar tu cuenta Google');
       return;
     }
 
     // State: error (no data at all)
     if (lastError && !ccuInfo) {
       chip.dataset.status = 'error';
-      chip.textContent = 'CU — error';
-      tooltip.textContent = `Error: ${lastError}`;
+      chip.textContent = 'CU \u2014 error';
+      tooltipSimple(tooltip, `Error: ${escapeHtml(lastError)}`);
       return;
     }
 
-    // State: loading (tokens but no data yet)
+    // State: loading
     if (!ccuInfo) {
       chip.dataset.status = 'loading';
-      chip.textContent = '-- CU';
-      tooltip.textContent = 'Cargando datos...';
+      chip.textContent = '\u2014\u2014 CU';
+      tooltipSimple(tooltip, 'Cargando datos...');
       return;
     }
 
@@ -287,15 +379,16 @@
     const burnRate = ccuInfo.burnRate || 0;
     const maxEst = getMaxEstimate(ccuInfo.tier, ccuInfo.paidBalance);
 
+    chip.onclick = null;
+
     // Exhausted state
     if (totalBalance <= 0) {
       chip.dataset.status = 'exhausted';
 
       if (ccuInfo.refillAt && ccuInfo.refillAt > Date.now()) {
-        // Countdown mode
         const updateCountdown = () => {
           const cd = formatCountdown(ccuInfo.refillAt);
-          chip.textContent = cd ? `0 CU — refill en ${cd}` : '0 CU — refill inminente...';
+          chip.textContent = cd ? `0 CU \u00b7 ${cd}` : '0 CU \u00b7 refill...';
           if (!cd && countdownInterval) {
             clearInterval(countdownInterval);
             countdownInterval = null;
@@ -304,43 +397,19 @@
         updateCountdown();
         countdownInterval = setInterval(updateCountdown, 1000);
       } else {
-        chip.textContent = '0 CU — sin unidades';
+        chip.textContent = '0 CU';
       }
     } else {
-      // Normal state with balance
       const status = getBalanceStatus(totalBalance, maxEst);
       chip.dataset.status = status;
       chip.textContent = `${totalBalance.toFixed(1)} CU`;
       if (burnRate > 0) {
-        chip.textContent += ` · ${burnRate.toFixed(1)} CU/hr`;
+        chip.textContent += ` \u00b7 ${burnRate.toFixed(1)}/hr`;
       }
     }
 
-    // Build tooltip content
-    const lines = [];
-    lines.push(`Balance\t\t${totalBalance.toFixed(1)} CU`);
-    if (burnRate > 0) {
-      lines.push(`Consumo\t\t${burnRate.toFixed(2)} CU/hr`);
-      const hoursLeft = totalBalance / burnRate;
-      const timeStr = formatTimeRemaining(hoursLeft);
-      if (timeStr) lines.push(`Tiempo est.\t${timeStr}`);
-    }
-    lines.push(`Sesiones\t${ccuInfo.activeSessions || 0}`);
-    lines.push('');
-
-    // GPUs
-    const gpuParts = [];
-    for (const g of (ccuInfo.eligible?.gpus || [])) gpuParts.push(`\u2713 ${g}`);
-    for (const g of (ccuInfo.ineligible?.gpus || [])) gpuParts.push(`\u2717 ${g}`);
-    if (gpuParts.length) lines.push(`GPU  ${gpuParts.join('  ')}`);
-
-    lines.push(`Plan ${tierLabel(ccuInfo.tier)}`);
-    lines.push('');
-    lines.push(`Actualizado ${formatTimeSince(lastUpdated)}`);
-
-    if (lastError) lines.push(`\u26A0 ${lastError}`);
-
-    tooltip.textContent = lines.join('\n');
+    // Structured tooltip
+    tooltipMetrics(tooltip, ccuInfo, lastUpdated, lastError);
   }
 
   // ============================================================
@@ -364,17 +433,14 @@
     renderChip(s, data);
   }
 
-  // Initial render
   updateFromStorage();
 
-  // React to storage changes
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local') {
       updateFromStorage();
     }
   });
 
-  // MutationObserver: re-inject if Colab removes our host
   const observer = new MutationObserver(() => {
     if (!document.getElementById(HOST_ID)) {
       shadow = createHost();
