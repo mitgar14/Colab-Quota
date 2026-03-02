@@ -23,8 +23,8 @@ Extensión de Chromium que muestra el consumo de Compute Units de Google Colab d
 
 La extensión consulta periódicamente el endpoint de Google Colab para obtener información de consumo de Compute Units (CU) y la presenta en dos lugares:
 
-- **Popup**: al hacer click en el icono de la extensión, muestra el saldo total, tasa de consumo, tiempo estimado restante, plan actual y GPUs disponibles.
-- **Overlay en Colab**: un chip flotante en la esquina inferior izquierda de `colab.research.google.com` que indica el saldo y consumo en tiempo real. Cambia de color según el nivel de saldo (verde, ámbar, rojo) y muestra una cuenta regresiva cuando las unidades se agotan.
+- **Popup**: al hacer click en el icono de la extensión, muestra el saldo total, tasa de consumo, tiempo estimado restante, sesiones activas (CPU/GPU) y plan. Incluye countdown de refill cuando el saldo se agota, y tooltip con GPUs disponibles al pasar sobre el badge del plan.
+- **Overlay en Colab**: un chip flotante en la esquina inferior izquierda de `colab.research.google.com` que indica el saldo y consumo en tiempo real. Cambia de color según el nivel de saldo (verde, ámbar, rojo) y muestra una cuenta regresiva cuando las unidades se agotan. Se puede iniciar sesión directamente desde el chip.
 
 Los datos se actualizan cada 5 minutos mediante `chrome.alarms`. No hay servidor intermedio: la extensión habla directamente con las APIs de Google.
 
@@ -40,8 +40,8 @@ No hay build, bundler ni dependencias npm. La extensión se carga directamente.
 ### 1. Clonar el repositorio
 
 ```bash
-git clone https://github.com/<tu-usuario>/colab-quota.git
-cd colab-quota
+git clone https://github.com/mitgar14/Colab-Quota.git
+cd Colab-Quota
 ```
 
 ### 2. Cargar en Chrome
@@ -55,7 +55,7 @@ La extensión aparece en la barra de herramientas. Las credenciales OAuth2 viene
 
 ## Uso
 
-1. Hacer click en el icono de la extensión y pulsar **Conectar con Google**
+1. Hacer click en el icono de la extensión y pulsar **Conectar con Google** (o click en el chip flotante dentro de Colab)
 2. Autorizar los permisos en la ventana de Google que se abre
 3. El popup muestra el saldo de CU, tasa de consumo y tiempo estimado
 4. En cualquier pestaña de `colab.research.google.com`, aparece un chip flotante con el saldo
@@ -70,7 +70,7 @@ La extensión aparece en la barra de herramientas. Las credenciales OAuth2 viene
 | Rojo pulsante | Saldo agotado (muestra cuenta regresiva si hay refill pendiente) |
 | Gris | Sin autenticar o cargando |
 
-El tooltip (hover sobre el chip) muestra el desglose completo: balance, consumo por hora, tiempo estimado, sesiones activas, GPUs elegibles y plan.
+El tooltip (hover sobre el chip) muestra el desglose: balance, consumo por hora, tiempo estimado, sesiones activas y plan.
 
 ## Arquitectura
 
@@ -118,6 +118,7 @@ colab-quota/
 │   ├── overlay.js             Chip, tooltip, Shadow DOM
 │   └── overlay.css            (vacío — estilos dentro del Shadow DOM)
 └── icons/
+    ├── icon.svg               Icono fuente (SVG)
     ├── icon-16.png
     ├── icon-48.png
     └── icon-128.png
@@ -161,7 +162,7 @@ La extensión no ejecuta código remoto.
 - La API de cuota de Colab (`colab.pa.googleapis.com`) no es pública ni está documentada oficialmente. Puede cambiar o dejar de funcionar sin aviso.
 - Las credenciales OAuth incluidas son las del SDK de Google Cloud (públicas). Si Google las revoca, la extensión dejará de funcionar hasta reemplazarlas.
 - La extensión no funciona en Firefox (depende de APIs específicas de Chromium: `chrome.alarms`, `chrome.windows.create`, Manifest V3).
-- Los iconos se generaron proceduralmente y no tienen versión de alta fidelidad en formato vectorial exportado.
+- Los PNGs se generaron proceduralmente a partir de un SVG fuente (`icons/icon.svg`).
 
 ## Licencia
 
