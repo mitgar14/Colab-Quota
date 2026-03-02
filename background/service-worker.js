@@ -267,3 +267,86 @@ async function getValidAccessToken() {
 
   return tokens.access_token;
 }
+
+// ============================================================
+// Fetch CCU Info
+// ============================================================
+
+async function fetchCcuInfo() {
+  let accessToken;
+  try {
+    accessToken = await getValidAccessToken();
+  } catch (err) {
+    if (err.message === 'not_authenticated') return;
+    // invalid_grant or oauth_client_changed already handled in refreshTokens
+    if (err.message === 'invalid_grant' || err.message === 'oauth_client_changed') return;
+    await chrome.storage.local.set({ lastError: err.message });
+    return;
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+  try {
+    const url = `${CCU_ENDPOINT}?get_ccu_consumption_info=true`;
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+        'X-Colab-Client-Agent': 'vscode',
+      },
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    // 401: try refresh once then retry
+    if (response.status === 401) {
+      const { tokens } = await chrome.storage.local.get('tokens');
+      if (!tokens?.refresh_token) {
+        await chrome.storage.local.set({ lastError: 'Session expired. Please reconnect.' });
+        return;
+      }
+      try {
+        const newTokens = await refreshTokens(tokens.refresh_token);
+        // Retry with new token
+        const retryResponse = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'Authorization': `Bearer ${newTokens.access_token}`,
+            'X-Colab-Client-Agent': 'vscode',
+          },
+        });
+        if (!retryResponse.ok) {
+          await chrome.storage.local.set({ lastError: `API error (${retryResponse.status})` });
+          return;
+        }
+        const retryText = await retryResponse.text();
+        const retryJson = JSON.parse(stripXssiPrefix(retryText));
+        const ccuInfo = parseConsumptionResponse(retryJson);
+        await chrome.storage.local.set({ ccuInfo, lastUpdated: Date.now(), lastError: null });
+        return;
+      } catch (refreshErr) {
+        // invalid_grant already handled inside refreshTokens
+        return;
+      }
+    }
+
+    if (!response.ok) {
+      await chrome.storage.local.set({ lastError: `API error (${response.status})` });
+      return;
+    }
+
+    const text = await response.text();
+    const json = JSON.parse(stripXssiPrefix(text));
+    const ccuInfo = parseConsumptionResponse(json);
+    await chrome.storage.local.set({ ccuInfo, lastUpdated: Date.now(), lastError: null });
+
+  } catch (err) {
+    clearTimeout(timeoutId);
+    const message = err.name === 'AbortError' ? 'Request timed out' : err.message;
+    await chrome.storage.local.set({ lastError: message });
+  }
+}
