@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Colab Quota",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Monitor de Compute Units de Google Colab en tiempo real.",
   "minimum_chrome_version": "120",
 
