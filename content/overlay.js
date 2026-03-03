@@ -277,20 +277,14 @@
 
     let rows = '';
 
-    // Balance
-    rows += row('Balance', `${totalBalance.toFixed(1)} CU`);
-
     if (waitingRefill) {
-      // Refill mode: just show countdown
       const cd = formatCountdown(ccuInfo.refillAt);
       rows += row('Refill', cd || 'inminente...', 'accent');
       if (sessions > 0) {
         rows += row('Sesiones', `${sessions} (CPU)`);
       }
     } else {
-      // Normal mode
       if (burnRate > 0) {
-        rows += row('Consumo', `${burnRate.toFixed(2)} CU/hr`);
         const hoursLeft = totalBalance / burnRate;
         const timeStr = formatTimeRemaining(hoursLeft);
         if (timeStr) rows += row('Restante', timeStr);
@@ -304,14 +298,7 @@
       }
     }
 
-    // Plan
-    rows += row('Plan', tierLabel(ccuInfo.tier));
-
-    // Footer
     let footer = '';
-    if (lastUpdated) {
-      footer += `<div class="cq-tt-footer">${formatTimeSince(lastUpdated)}</div>`;
-    }
     if (lastError) {
       footer += `<div class="cq-tt-warn">\u26A0 ${escapeHtml(lastError)}</div>`;
     }
@@ -399,6 +386,7 @@
       } else {
         chip.textContent = '0 CU';
       }
+      tooltipMetrics(tooltip, ccuInfo, lastUpdated, lastError);
     } else {
       const status = getBalanceStatus(totalBalance, maxEst);
       chip.dataset.status = status;
@@ -406,10 +394,43 @@
       if (burnRate > 0) {
         chip.textContent += ` \u00b7 ${burnRate.toFixed(1)}/hr`;
       }
+      tooltipMetrics(tooltip, ccuInfo, lastUpdated, lastError);
     }
+  }
 
-    // Structured tooltip
-    tooltipMetrics(tooltip, ccuInfo, lastUpdated, lastError);
+  // ============================================================
+  // Page account auto-detection
+  // ============================================================
+
+  // Google's profile button always has aria-label with "(email@domain)" regardless of locale
+  const EMAIL_RE = /\(([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\)/;
+
+  function detectPageAccount() {
+    for (const el of document.querySelectorAll('a[aria-label], button[aria-label]')) {
+      const match = el.getAttribute('aria-label').match(EMAIL_RE);
+      if (match) return match[1].toLowerCase();
+    }
+    return null;
+  }
+
+  let _lastDetectedEmail = null;
+
+  async function syncAccountWithPage(force) {
+    const pageEmail = detectPageAccount();
+    if (!pageEmail) return;
+    if (!force && pageEmail === _lastDetectedEmail) return;
+    _lastDetectedEmail = pageEmail;
+
+    const { accounts, activeAccount } = await chrome.storage.local.get(['accounts', 'activeAccount']);
+    if (!accounts) return;
+
+    // Find stored account matching the page email (case-insensitive)
+    const matchedEmail = Object.keys(accounts).find(e => e.toLowerCase() === pageEmail);
+    if (matchedEmail && matchedEmail !== activeAccount) {
+      await chrome.storage.local.set({ activeAccount: matchedEmail });
+      updateFromStorage();
+      chrome.runtime.sendMessage({ type: 'REFRESH_NOW' }).catch(() => {});
+    }
   }
 
   // ============================================================
@@ -427,13 +448,20 @@
 
   async function updateFromStorage() {
     const s = ensureOverlay();
-    const data = await chrome.storage.local.get(
-      ['tokens', 'ccuInfo', 'lastUpdated', 'lastError']
-    );
+    const { accounts, activeAccount } = await chrome.storage.local.get(['accounts', 'activeAccount']);
+    const acct = accounts?.[activeAccount];
+    const data = {
+      tokens: acct?.tokens || null,
+      ccuInfo: acct?.ccuInfo || null,
+      lastUpdated: acct?.lastUpdated || null,
+      lastError: acct?.lastError || null,
+    };
     renderChip(s, data);
   }
 
   updateFromStorage();
+
+  // ── Observers ──
 
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local') {
@@ -441,12 +469,31 @@
     }
   });
 
-  const observer = new MutationObserver(() => {
+  // Re-inject chip if Colab removes it from the DOM
+  const chipObserver = new MutationObserver(() => {
     if (!document.getElementById(HOST_ID)) {
       shadow = createHost();
       updateFromStorage();
     }
   });
-  observer.observe(document.body, { childList: true });
+  chipObserver.observe(document.body, { childList: true });
+
+  // ── Page account auto-detection ──
+  // MutationObserver on <body> subtree detects when Google's profile button
+  // changes (account switch, lazy load, SPA navigation). Pure DOM read — no
+  // network calls, no rate-limiting risk.
+
+  const accountObserver = new MutationObserver(() => syncAccountWithPage());
+  accountObserver.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['aria-label'] });
+
+  // Initial detection (Google bar may already be rendered)
+  syncAccountWithPage();
+
+  // Re-check on tab focus: another tab may have changed activeAccount
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      syncAccountWithPage(true);
+    }
+  });
 
 })();

@@ -1,4 +1,4 @@
-// Colab Quota — Popup
+// Colab Quota — Popup (multi-account)
 
 const $ = (sel) => document.querySelector(sel);
 let _refillInterval = null;
@@ -48,13 +48,24 @@ function showState(stateId) {
   $(stateId).hidden = false;
 }
 
-function renderAuth(data) {
-  const { userInfo, ccuInfo, lastUpdated } = data;
+function renderAuth(acctData, allAccounts, activeEmail) {
+  const { userInfo, ccuInfo, lastUpdated } = acctData;
 
   // Clear previous refill interval
   if (_refillInterval) { clearInterval(_refillInterval); _refillInterval = null; }
 
-  $('#user-email').textContent = userInfo?.email || '';
+  // Populate account selector
+  const select = $('#account-select');
+  const emails = Object.keys(allAccounts);
+  select.innerHTML = '';
+  for (const email of emails) {
+    const opt = document.createElement('option');
+    opt.value = email;
+    opt.textContent = email;
+    select.appendChild(opt);
+  }
+  select.value = activeEmail;
+
   $('#tier-badge').textContent = tierLabel(ccuInfo?.tier);
 
   // GPU tooltip on tier badge
@@ -65,7 +76,7 @@ function renderAuth(data) {
   tierTooltip.textContent = gpus.length ? gpus.join('\n') : '';
 
   const totalBalance = (ccuInfo?.paidBalance || 0) + (ccuInfo?.freeBalance || 0);
-  $('#balance-value').textContent = totalBalance.toFixed(1);
+  $('#balance-value').textContent = totalBalance.toFixed(2);
 
   const burnRate = ccuInfo?.burnRate || 0;
   const waitingRefill = totalBalance <= 0 && ccuInfo?.refillAt && ccuInfo.refillAt > Date.now();
@@ -74,7 +85,6 @@ function renderAuth(data) {
   const refillRow = $('#refill-row');
   const refillEl = $('#refill-countdown');
   if (waitingRefill) {
-    // Waiting for refill: show countdown, hide burn/time, keep sessions if active (CPU)
     $('#burn-row').hidden = true;
     $('#time-row').hidden = true;
     const sessions = ccuInfo?.activeSessions || 0;
@@ -89,7 +99,6 @@ function renderAuth(data) {
     updateRefill();
     _refillInterval = setInterval(updateRefill, 1000);
   } else {
-    // Normal: show consumption metrics, hide refill
     $('#burn-row').hidden = false;
     refillRow.hidden = true;
     refillEl.textContent = '';
@@ -135,27 +144,26 @@ function renderUnauth() {
 // ============================================================
 
 async function initPopup() {
-  const data = await chrome.storage.local.get(
-    ['tokens', 'userInfo', 'ccuInfo', 'lastUpdated', 'lastError']
-  );
+  const { accounts, activeAccount } = await chrome.storage.local.get(['accounts', 'activeAccount']);
+  const acct = accounts?.[activeAccount] || null;
 
-  if (!data.tokens) {
+  if (!accounts || Object.keys(accounts).length === 0 || !acct) {
     renderUnauth();
-  } else if (data.lastError && !data.ccuInfo) {
-    renderError(data.lastError);
-  } else if (data.ccuInfo) {
-    renderAuth(data);
-  } else {
-    renderAuth(data);
+    return;
   }
+
+  if (acct.lastError && !acct.ccuInfo) {
+    renderError(acct.lastError);
+    return;
+  }
+
+  renderAuth(acct, accounts, activeAccount);
 }
 
-// On popup open: render with cached data, then fetch fresh data in background.
-// storage.onChanged will re-render automatically when new data arrives.
 async function initAndRefresh() {
   await initPopup();
-  const data = await chrome.storage.local.get(['tokens']);
-  if (data.tokens) {
+  const { activeAccount } = await chrome.storage.local.get('activeAccount');
+  if (activeAccount) {
     chrome.runtime.sendMessage({ type: 'REFRESH_NOW' });
   }
 }
@@ -173,7 +181,27 @@ $('#btn-login').addEventListener('click', async () => {
       renderError(response.error);
     }
   }
-  // On success, storage.onChanged will trigger re-render
+});
+
+$('#btn-add-account').addEventListener('click', async () => {
+  $('#btn-add-account').disabled = true;
+  const response = await chrome.runtime.sendMessage({ type: 'LOGIN' });
+  $('#btn-add-account').disabled = false;
+  if (!response.ok && response.error && !response.error.includes('closed by user')) {
+    renderError(response.error);
+  }
+});
+
+$('#account-select').addEventListener('change', async (e) => {
+  const email = e.target.value;
+  await chrome.storage.local.set({ activeAccount: email });
+  // Render directly with the known email — don't re-read activeAccount from storage
+  // (chrome.storage.local.get can return stale activeAccount in the same context)
+  const { accounts } = await chrome.storage.local.get('accounts');
+  if (accounts?.[email]) {
+    renderAuth(accounts[email], accounts, email);
+  }
+  chrome.runtime.sendMessage({ type: 'REFRESH_NOW' });
 });
 
 $('#btn-refresh').addEventListener('click', async () => {
@@ -185,8 +213,11 @@ $('#btn-refresh').addEventListener('click', async () => {
 });
 
 $('#btn-logout').addEventListener('click', async () => {
-  await chrome.runtime.sendMessage({ type: 'LOGOUT' });
-  renderUnauth();
+  const { activeAccount } = await chrome.storage.local.get('activeAccount');
+  if (activeAccount) {
+    await chrome.runtime.sendMessage({ type: 'LOGOUT', email: activeAccount });
+  }
+  await initPopup();
 });
 
 $('#btn-retry').addEventListener('click', async () => {

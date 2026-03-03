@@ -1,5 +1,5 @@
 // Colab Quota — Service Worker
-// OAuth2 PKCE + polling + storage management
+// OAuth2 PKCE + polling + multi-account storage management
 // All state is read from chrome.storage on each wake — no global mutable state.
 
 // ============================================================
@@ -19,7 +19,7 @@ const CCU_ENDPOINT  = 'https://colab.pa.googleapis.com/v1/user-info';
 const SCOPES        = 'profile email https://www.googleapis.com/auth/colaboratory';
 const XSSI_PREFIX   = ")]}'\n";
 const ALARM_NAME    = 'colab-quota-poll';
-const POLL_INTERVAL = 5; // minutes
+const POLL_INTERVAL = 1; // minutes
 const REFRESH_MARGIN_MS = 5 * 60 * 1000; // 5 minutes before expiry
 const FETCH_TIMEOUT_MS  = 10 * 1000;     // 10 seconds
 
@@ -30,6 +30,69 @@ const TIER_MAP = {
   'SUBSCRIPTION_TIER_PRO':        'pro',
   'SUBSCRIPTION_TIER_PRO_PLUS':   'pro_plus',
 };
+
+// ============================================================
+// Multi-Account Storage Helpers
+// ============================================================
+
+async function getAccount(email) {
+  const { accounts } = await chrome.storage.local.get('accounts');
+  return accounts?.[email] || null;
+}
+
+async function getActiveAccount() {
+  const { accounts, activeAccount } = await chrome.storage.local.get(['accounts', 'activeAccount']);
+  if (!activeAccount || !accounts?.[activeAccount]) return null;
+  return { email: activeAccount, ...accounts[activeAccount] };
+}
+
+async function setAccountData(email, data) {
+  const { accounts } = await chrome.storage.local.get('accounts');
+  const updated = { ...accounts };
+  updated[email] = { ...(updated[email] || {}), ...data };
+  await chrome.storage.local.set({ accounts: updated });
+}
+
+async function removeAccount(email) {
+  const { accounts, activeAccount } = await chrome.storage.local.get(['accounts', 'activeAccount']);
+  const updated = { ...accounts };
+  delete updated[email];
+  const remaining = Object.keys(updated);
+  const newActive = email === activeAccount
+    ? (remaining[0] || null)
+    : activeAccount;
+  await chrome.storage.local.set({
+    accounts: updated,
+    activeAccount: newActive,
+  });
+  return { remaining: remaining.length, newActive };
+}
+
+// ============================================================
+// Migration (single-account → multi-account)
+// ============================================================
+
+async function migrateIfNeeded() {
+  const { tokens, userInfo, accounts } = await chrome.storage.local.get(['tokens', 'userInfo', 'accounts']);
+  if (tokens && userInfo?.email && !accounts) {
+    const old = await chrome.storage.local.get(['ccuInfo', 'lastUpdated', 'lastError']);
+    const email = userInfo.email;
+    await chrome.storage.local.set({
+      accounts: {
+        [email]: {
+          tokens,
+          userInfo,
+          ccuInfo: old.ccuInfo || null,
+          lastUpdated: old.lastUpdated || null,
+          lastError: old.lastError || null,
+        }
+      },
+      activeAccount: email,
+    });
+    await chrome.storage.local.remove(['tokens', 'userInfo', 'ccuInfo', 'lastUpdated', 'lastError']);
+    console.log(`[Colab Quota] Migrated single account: ${email}`);
+  }
+}
 
 // ============================================================
 // PKCE Helpers
@@ -165,8 +228,6 @@ async function authenticate() {
   const { codeVerifier, codeChallenge } = await generatePKCE();
   const authUrl = buildAuthUrl(codeChallenge);
 
-  // Open a popup window for Google OAuth (can't use launchWebAuthFlow
-  // because the redirect URI is http://localhost, not chromiumapp.org)
   const authWindow = await chrome.windows.create({
     url: authUrl,
     type: 'popup',
@@ -174,7 +235,6 @@ async function authenticate() {
     height: 700,
   });
 
-  // Wait for Google to redirect to http://localhost?code=XXX
   const code = await new Promise((resolve, reject) => {
     const onTabUpdated = (tabId, changeInfo) => {
       if (!changeInfo.url || !changeInfo.url.startsWith(REDIRECT_URI)) return;
@@ -205,31 +265,35 @@ async function authenticate() {
 
   const tokens = await exchangeCodeForTokens(code, codeVerifier);
   const userInfo = await fetchGoogleUserInfo(tokens.access_token);
+  const email = userInfo.email;
 
-  await chrome.storage.local.set({
-    tokens,
-    userInfo,
-    lastError: null,
-  });
+  // Save as new (or updated) account entry and set as active
+  await setAccountData(email, { tokens, userInfo, lastError: null });
+  await chrome.storage.local.set({ activeAccount: email });
 
   await startPolling();
-  await fetchCcuInfo(); // first fetch immediately
+  await fetchCcuInfo();
 }
 
-async function logout() {
-  const { tokens } = await chrome.storage.local.get('tokens');
-
-  await chrome.alarms.clear(ALARM_NAME);
-  await chrome.storage.local.remove(['tokens', 'userInfo', 'ccuInfo', 'lastUpdated', 'lastError']);
+async function removeAccountFlow(email) {
+  const acct = await getAccount(email);
 
   // Best-effort token revocation
-  if (tokens?.access_token) {
+  if (acct?.tokens?.access_token) {
     try {
-      await fetch(`https://oauth2.googleapis.com/revoke?token=${tokens.access_token}`, {
+      await fetch(`https://oauth2.googleapis.com/revoke?token=${acct.tokens.access_token}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       });
     } catch (_) { /* ignore revocation errors */ }
+  }
+
+  const { remaining, newActive } = await removeAccount(email);
+
+  if (remaining === 0) {
+    await chrome.alarms.clear(ALARM_NAME);
+  } else if (newActive) {
+    await fetchCcuInfo();
   }
 }
 
@@ -237,7 +301,7 @@ async function logout() {
 // Token Refresh
 // ============================================================
 
-async function refreshTokens(refreshToken) {
+async function refreshTokens(email, refreshToken) {
   const response = await fetch(TOKEN_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -255,17 +319,15 @@ async function refreshTokens(refreshToken) {
 
     // invalid_grant: token revoked or client changed
     if (status === 400 && errBody.includes('invalid_grant')) {
-      await chrome.storage.local.remove(['tokens', 'userInfo', 'ccuInfo', 'lastUpdated']);
-      await chrome.storage.local.set({ lastError: 'Session expired. Please reconnect.' });
-      await chrome.alarms.clear(ALARM_NAME);
+      const { remaining } = await removeAccount(email);
+      if (remaining === 0) await chrome.alarms.clear(ALARM_NAME);
       throw new Error('invalid_grant');
     }
 
     // 401: OAuth client may have changed
     if (status === 401) {
-      await chrome.storage.local.remove(['tokens', 'userInfo', 'ccuInfo', 'lastUpdated']);
-      await chrome.storage.local.set({ lastError: 'Auth error. Please reconnect.' });
-      await chrome.alarms.clear(ALARM_NAME);
+      const { remaining } = await removeAccount(email);
+      if (remaining === 0) await chrome.alarms.clear(ALARM_NAME);
       throw new Error('oauth_client_changed');
     }
 
@@ -275,39 +337,41 @@ async function refreshTokens(refreshToken) {
   const data = await response.json();
   const newTokens = {
     access_token:  data.access_token,
-    refresh_token: data.refresh_token || refreshToken, // preserve if not returned
+    refresh_token: data.refresh_token || refreshToken,
     expires_at:    Date.now() + data.expires_in * 1000,
   };
 
-  await chrome.storage.local.set({ tokens: newTokens });
+  await setAccountData(email, { tokens: newTokens });
   return newTokens;
 }
 
-async function getValidAccessToken() {
-  const { tokens } = await chrome.storage.local.get('tokens');
-  if (!tokens) throw new Error('not_authenticated');
+async function getValidAccessToken(email) {
+  const acct = await getAccount(email);
+  if (!acct?.tokens) throw new Error('not_authenticated');
 
-  if (tokens.expires_at - REFRESH_MARGIN_MS < Date.now()) {
-    const newTokens = await refreshTokens(tokens.refresh_token);
+  if (acct.tokens.expires_at - REFRESH_MARGIN_MS < Date.now()) {
+    const newTokens = await refreshTokens(email, acct.tokens.refresh_token);
     return newTokens.access_token;
   }
 
-  return tokens.access_token;
+  return acct.tokens.access_token;
 }
 
 // ============================================================
-// Fetch CCU Info
+// Fetch CCU Info (for active account)
 // ============================================================
 
 async function fetchCcuInfo() {
+  const { activeAccount } = await chrome.storage.local.get('activeAccount');
+  if (!activeAccount) return;
+
   let accessToken;
   try {
-    accessToken = await getValidAccessToken();
+    accessToken = await getValidAccessToken(activeAccount);
   } catch (err) {
     if (err.message === 'not_authenticated') return;
-    // invalid_grant or oauth_client_changed already handled in refreshTokens
     if (err.message === 'invalid_grant' || err.message === 'oauth_client_changed') return;
-    await chrome.storage.local.set({ lastError: err.message });
+    await setAccountData(activeAccount, { lastError: err.message });
     return;
   }
 
@@ -330,14 +394,13 @@ async function fetchCcuInfo() {
 
     // 401: try refresh once then retry
     if (response.status === 401) {
-      const { tokens } = await chrome.storage.local.get('tokens');
-      if (!tokens?.refresh_token) {
-        await chrome.storage.local.set({ lastError: 'Session expired. Please reconnect.' });
+      const acct = await getAccount(activeAccount);
+      if (!acct?.tokens?.refresh_token) {
+        await setAccountData(activeAccount, { lastError: 'Session expired. Please reconnect.' });
         return;
       }
       try {
-        const newTokens = await refreshTokens(tokens.refresh_token);
-        // Retry with new token (with timeout)
+        const newTokens = await refreshTokens(activeAccount, acct.tokens.refresh_token);
         const retryController = new AbortController();
         const retryTimeoutId = setTimeout(() => retryController.abort(), FETCH_TIMEOUT_MS);
         const retryResponse = await fetch(url, {
@@ -351,16 +414,15 @@ async function fetchCcuInfo() {
         });
         clearTimeout(retryTimeoutId);
         if (!retryResponse.ok) {
-          await chrome.storage.local.set({ lastError: `API error (${retryResponse.status})` });
+          await setAccountData(activeAccount, { lastError: `API error (${retryResponse.status})` });
           return;
         }
         const retryText = await retryResponse.text();
         const retryJson = JSON.parse(stripXssiPrefix(retryText));
         const ccuInfo = parseConsumptionResponse(retryJson);
-        await chrome.storage.local.set({ ccuInfo, lastUpdated: Date.now(), lastError: null });
+        await setAccountData(activeAccount, { ccuInfo, lastUpdated: Date.now(), lastError: null });
         return;
       } catch (refreshErr) {
-        // invalid_grant already handled inside refreshTokens
         return;
       }
     }
@@ -368,19 +430,19 @@ async function fetchCcuInfo() {
     if (!response.ok) {
       const errBody = await response.text();
       console.error(`[Colab Quota] API error ${response.status}:`, errBody);
-      await chrome.storage.local.set({ lastError: `API error (${response.status}): ${errBody.slice(0, 200)}` });
+      await setAccountData(activeAccount, { lastError: `API error (${response.status}): ${errBody.slice(0, 200)}` });
       return;
     }
 
     const text = await response.text();
     const json = JSON.parse(stripXssiPrefix(text));
     const ccuInfo = parseConsumptionResponse(json);
-    await chrome.storage.local.set({ ccuInfo, lastUpdated: Date.now(), lastError: null });
+    await setAccountData(activeAccount, { ccuInfo, lastUpdated: Date.now(), lastError: null });
 
   } catch (err) {
     clearTimeout(timeoutId);
     const message = err.name === 'AbortError' ? 'Request timed out' : err.message;
-    await chrome.storage.local.set({ lastError: message });
+    await setAccountData(activeAccount, { lastError: message });
   }
 }
 
@@ -393,8 +455,9 @@ async function startPolling() {
 }
 
 async function init() {
-  const { tokens } = await chrome.storage.local.get('tokens');
-  if (tokens) {
+  await migrateIfNeeded();
+  const { activeAccount } = await chrome.storage.local.get('activeAccount');
+  if (activeAccount) {
     await startPolling();
   }
 }
@@ -424,11 +487,19 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     authenticate()
       .then(() => sendResponse({ ok: true }))
       .catch((err) => sendResponse({ ok: false, error: err.message }));
-    return true; // async response
+    return true;
   }
 
   if (msg.type === 'LOGOUT') {
-    logout()
+    removeAccountFlow(msg.email)
+      .then(() => sendResponse({ ok: true }))
+      .catch((err) => sendResponse({ ok: false, error: err.message }));
+    return true;
+  }
+
+  if (msg.type === 'SWITCH_ACCOUNT') {
+    chrome.storage.local.set({ activeAccount: msg.email })
+      .then(() => fetchCcuInfo())
       .then(() => sendResponse({ ok: true }))
       .catch((err) => sendResponse({ ok: false, error: err.message }));
     return true;
@@ -442,8 +513,20 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   }
 
   if (msg.type === 'GET_STATE') {
-    chrome.storage.local.get(['tokens', 'userInfo', 'ccuInfo', 'lastUpdated', 'lastError'])
-      .then((data) => sendResponse(data))
+    chrome.storage.local.get(['accounts', 'activeAccount'])
+      .then(({ accounts, activeAccount }) => {
+        const acct = accounts?.[activeAccount] || null;
+        sendResponse({
+          accounts: accounts || {},
+          activeAccount,
+          // Compat: flatten active account data for easy consumption
+          tokens: acct?.tokens || null,
+          userInfo: acct?.userInfo || null,
+          ccuInfo: acct?.ccuInfo || null,
+          lastUpdated: acct?.lastUpdated || null,
+          lastError: acct?.lastError || null,
+        });
+      })
       .catch((err) => sendResponse({ error: err.message }));
     return true;
   }
